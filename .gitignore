@@ -1,0 +1,19 @@
+# Python environment
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database and Sessions
+backend/data/*.json
+backend/data/*.tmp
+
+# OS Files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Logs and Temp files
+*.log
+tmp/

@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeGrapher </title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ══ AUTH ══ -->
+<div id="auth-screen">
+  <div class="auth-deco"></div>
+  <div class="auth-top-toggle">
+    <label class="tog"><input type="checkbox" id="auth-thm" onchange="setTheme(this.checked)"><span class="tog-sl"></span></label>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="auth-card" id="login-card">
+    <div class="auth-logo"><div class="auth-logo-icon">⬡</div><div><div class="auth-logo-name">CodeGrapher</div><div class="auth-logo-sub">AST Visual Explorer </div></div></div>
+    <div class="auth-h">Welcome back</div>
+    <div class="auth-sub">Sign in to access your code analyses</div>
+    <div class="auth-err" id="lerr"></div>
+    <div class="auth-field"><label class="auth-label">Email</label><input type="email" class="auth-input" id="l-email" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="auth-field"><label class="auth-label">Password</label><input type="password" class="auth-input" id="l-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="auth-btn" onclick="doLogin()">Sign In →</button>
+    <div class="auth-links">
+      <span>No account? <a onclick="show('signup-card')">Create one free</a></span>
+      <span><a onclick="show('forgot-card')">Forgot password?</a></span>
+    </div>
+  </div>
+
+  <!-- SIGNUP -->
+  <div class="auth-card" id="signup-card" style="display:none">
+    <div class="auth-logo"><div class="auth-logo-icon">⬡</div><div><div class="auth-logo-name">CodeGrapher</div><div class="auth-logo-sub">AST Visual Explorer </div></div></div>
+    <div class="auth-h">Create account</div>
+    <div class="auth-sub">Start visualizing your codebase</div>
+    <div class="auth-err" id="serr"></div>
+    <div class="auth-field"><label class="auth-label">Full Name</label><input type="text" class="auth-input" id="s-name" placeholder="Jane Smith" autocomplete="name"></div>
+    <div class="auth-field"><label class="auth-label">Email</label><input type="email" class="auth-input" id="s-email" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="auth-field"><label class="auth-label">Password <small style="font-weight:400;text-transform:none;letter-spacing:0">(min 6 chars)</small></label><input type="password" class="auth-input" id="s-pw" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()"></div>
+    <button class="auth-btn" onclick="doSignup()">Create Account →</button>
+    <div class="auth-links"><span>Have an account? <a onclick="show('login-card')">Sign in</a></span></div>
+  </div>
+
+  <!-- FORGOT PASSWORD -->
+  <div class="auth-card" id="forgot-card" style="display:none">
+    <div class="auth-logo"><div class="auth-logo-icon">⬡</div><div><div class="auth-logo-name">CodeGrapher</div><div class="auth-logo-sub">Reset Password</div></div></div>
+    <div class="auth-h">Reset Password</div>
+    <div class="auth-sub">Enter your email and choose a new password</div>
+    <div class="auth-err" id="ferr"></div>
+    <div class="auth-ok" id="fok"></div>
+    <div class="auth-field"><label class="auth-label">Email</label><input type="email" class="auth-input" id="f-email" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="auth-field"><label class="auth-label">New Password <small style="font-weight:400;text-transform:none;letter-spacing:0">(min 6 chars)</small></label><input type="password" class="auth-input" id="f-pw" placeholder="New password" onkeydown="if(event.key==='Enter')doForgot()"></div>
+    <div class="auth-field"><label class="auth-label">Confirm Password</label><input type="password" class="auth-input" id="f-pw2" placeholder="Confirm password" onkeydown="if(event.key==='Enter')doForgot()"></div>
+    <button class="auth-btn" onclick="doForgot()">Reset Password →</button>
+    <div class="auth-links"><span>Remember it? <a onclick="show('login-card')">Sign in</a></span></div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app-screen">
+
+  <!-- SIDEBAR -->
+  <div id="sb">
+    <div class="sb-logo"><div class="sb-logo-icon">⬡</div><div><div class="sb-logo-txt">CodeGrapher</div><div class="sb-logo-sub">AST Explorer </div></div></div>
+    <div class="sb-acts">
+      <button class="btn-new" onclick="newAnalysis()">＋ New Analysis</button>
+      <div class="tog-wrap" title="Toggle theme">
+        <label class="tog"><input type="checkbox" id="app-thm" onchange="setTheme(this.checked)"><span class="tog-sl"></span></label>
+      </div>
+    </div>
+    <div class="sb-srch"><input type="text" class="sb-srch-inp" id="hist-search" placeholder="Search analyses…" oninput="filterHist(this.value)"></div>
+    <div class="sb-hist" id="hist-list">
+      <div class="hist-empty" id="hist-empty">No analyses yet.<br>Upload a file to start.</div>
+    </div>
+    <div class="sb-user">
+      <div class="u-av" id="u-av">U</div>
+      <div class="u-inf"><div class="u-nm" id="u-nm">—</div><div class="u-em" id="u-em">—</div></div>
+      <button class="btn-logout" title="Sign out" onclick="doLogout()">⏻</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- TOPBAR -->
+    <div id="topbar">
+      <span id="lang-badge">Python</span>
+      <span id="file-label">No file loaded</span>
+      <div class="tb-stats" id="tb-stats" style="display:none">
+        <div class="sp"><div class="sd" style="background:var(--file)"></div>Files <span class="sv" id="s-f">0</span></div>
+        <div class="sp"><div class="sd" style="background:var(--cls)"></div>Classes <span class="sv" id="s-c">0</span></div>
+        <div class="sp"><div class="sd" style="background:var(--func)"></div>Funcs <span class="sv" id="s-fn">0</span></div>
+        <div class="sp"><div class="sd" style="background:var(--call)"></div>Calls <span class="sv" id="s-ca">0</span></div>
+      </div>
+      <div class="panel-tabs" id="panel-tabs" style="display:none">
+        <button class="pt active" id="tab-graph" onclick="switchTab('graph')">⬡ Graph</button>
+        <button class="pt" id="tab-risk" onclick="switchTab('risk')">🛡 Risk <span class="ptb" id="risk-badge" style="display:none">0</span></button>
+        <button class="pt" id="tab-docs" onclick="switchTab('docs')">📄 Docs</button>
+      </div>
+      <div class="zm-ctrls" id="zm-ctrls" style="display:none">
+        <button class="zm-btn" onclick="zoomBy(1.3)">＋</button>
+        <span class="zm-lbl" id="zm-pct">100%</span>
+        <button class="zm-btn" onclick="zoomBy(0.77)">－</button>
+        <button class="zm-btn" onclick="resetView()" title="Fit screen">⊡</button>
+      </div>
+      <button id="btn-fullscreen" style="display:none" onclick="toggleFullscreen()" title="Toggle fullscreen graph">⊞</button>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div id="workspace">
+
+      <!-- GRAPH AREA -->
+      <div id="graph-area">
+        <div id="upload-zone">
+          <div class="upl-card" id="upl-card"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="dov(event)" ondragleave="dol()" ondrop="dod(event)">
+            <span class="upl-icon">⬡</span>
+            <div class="upl-title">Drop Your Codebase</div>
+            <div class="upl-sub">Upload Python or Java source files.<br>ZIP archives supported.<br><strong style="color:var(--accent)">Risk Report + Docs auto-generated.</strong></div>
+            <div class="upl-types">
+              <span class="tbadge t-py">.py</span>
+              <span class="tbadge t-java">.java</span>
+              <span class="tbadge t-zip">.zip</span>
+            </div>
+          </div>
+          <input type="file" id="file-input" accept=".py,.java,.zip" onchange="onFileSelect(event)">
+        </div>
+
+        <div class="lov hidden" id="lov">
+          <div class="spinner"></div>
+          <div class="loading-txt">ANALYZING CODEBASE</div>
+          <div class="loading-sub" id="lsub">Parsing AST…</div>
+        </div>
+
+        <div id="gsvg-wrap">
+          <svg id="gsvg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow-calls" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)" opacity=".85"/>
+              </marker>
+            </defs>
+            <g id="groot"><g id="el"></g><g id="nl"></g></g>
+          </svg>
+        </div>
+
+        <div id="tooltip"><div class="tt-h" id="tt-h"></div><div id="tt-b"></div></div>
+
+        <div id="legend">
+          <div class="leg-h">Legend</div>
+          <div class="leg-i"><div class="leg-dot" style="background:var(--file)"></div><span>File</span></div>
+          <div class="leg-i"><div class="leg-dot" style="background:var(--cls);border-radius:50%"></div><span>Class</span></div>
+          <div class="leg-i"><div class="leg-dot" style="background:var(--func);border-radius:2px"></div><span>Function</span></div>
+          <div class="leg-i"><div class="leg-line" style="background:var(--accent)"></div><span>Calls (user)</span></div>
+          <div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border)">
+            <div class="leg-i"><div class="leg-dot" style="background:#ef4444;border-radius:50%"></div><span style="font-size:9px">High complexity</span></div>
+            <div class="leg-i"><div class="leg-dot" style="background:#6b7280;border-radius:50%"></div><span style="font-size:9px">Dead code</span></div>
+          </div>
+        </div>
+
+        <div id="zoom-ind"><div class="zi-lv" id="zi-lv">High Level</div><div class="zi-ht" id="zi-ht">Scroll to zoom</div></div>
+
+        <div id="minimap">
+          <svg id="mm-svg" style="width:100%;height:100%">
+            <g id="mm-c"></g>
+            <rect id="mm-vp" fill="rgba(255,149,79,.1)" stroke="var(--accent)" stroke-width="1" rx="2"/>
+          </svg>
+        </div>
+
+        <!-- Risk overlay -->
+        <div class="overlay-panel" id="risk-panel">
+          <div class="op-header">
+            <div><div class="op-title">🛡 Risk Report</div><div class="op-sub">Dead code · Complexity · Coupling · Deletion risk</div></div>
+            <div id="risk-health-badge" class="health-badge hg" style="margin-left:12px">–/100</div>
+            <div style="margin-left:auto">
+              <button class="btn-dl" onclick="dlDocs()">⬇ Download Docs (.md)</button>
+            </div>
+          </div>
+          <div class="op-body" id="risk-body"><div class="chat-welcome">Upload a file to generate the risk report.</div></div>
+        </div>
+
+        <!-- Docs overlay -->
+        <div class="overlay-panel" id="docs-panel">
+          <div class="op-header">
+            <div><div class="op-title">📄 Auto-Generated Documentation</div><div class="op-sub">Full project docs with risk badges embedded</div></div>
+            <div style="margin-left:auto"><button class="btn-dl" onclick="dlDocs()">⬇ Download .md</button></div>
+          </div>
+          <div class="op-body" id="docs-body"><div class="chat-welcome">Upload a file to generate documentation.</div></div>
+        </div>
+      </div>
+
+      <!-- CHAT DRAWER -->
+     <div id="chat-drawer" style="display: none;">
+        <div class="chat-drag-bar" onclick="toggleChat()">
+          <div class="chat-drag-title">
+            <span class="cdot"></span>
+            AI Code Assistant
+            <span style="font-size:9px;color:var(--muted);margin-left:4px">· Ollama / llama3</span>
+          </div>
+          <div class="chat-drag-actions" onclick="event.stopPropagation()">
+            <button class="chat-resize-btn" onclick="resizeChat('sm')" title="Small">▼ Small</button>
+            <button class="chat-resize-btn" onclick="resizeChat('md')" title="Medium">◈ Medium</button>
+            <button class="chat-resize-btn" onclick="resizeChat('lg')" title="Large">▲ Large</button>
+            <button class="chat-resize-btn" onclick="resizeChat('full')" title="Full Screen">◱ Full</button>
+            <button class="chat-resize-btn" onclick="toggleChat()" title="Collapse/Expand" id="chat-tog-btn">▼</button>
+          </div>
+        </div>
+        <div id="chat-msgs">
+          <div class="chat-welcome">Upload a codebase then ask anything about its architecture, functions, or risks.</div>
+        </div>
+        <div id="chat-inp-row">
+          <textarea id="chat-inp" placeholder="Ask about the codebase… (Enter to send)" disabled onkeydown="chatKey(event)"></textarea>
+          <button id="chat-send" onclick="sendChat()" disabled>➤</button>
+        </div>
+      </div>
+
+    </div><!-- workspace -->
+  </div><!-- main -->
+</div><!-- app-screen -->
+
+<div id="err-toast"></div>
+<div id="ok-toast"></div>
+<script src="/static/main.js"></script>
+</body>
+</html>
