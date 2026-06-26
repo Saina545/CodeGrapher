@@ -1,5 +1,5 @@
 """
-CodeGrapher — Backend (Modularized)
+CodeGrapher — Backend (Modularized with PostgreSQL)
 Routes and Application Setup
 """
 from flask import (Flask, request, jsonify, send_from_directory,
@@ -9,10 +9,13 @@ import os, zipfile, tempfile, json, hashlib, uuid, re
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-# Import our new modules!
+# ──────────────────────────────────────────────────────
+#  INTERNAL MODULES
+# ──────────────────────────────────────────────────────
 from llm import ollama_chat, ollama_health, build_compact_context, OLLAMA_MODEL
 from analysis import (analyze_python_file, analyze_java_file, build_graph, 
                       generate_risk_report, generate_markdown_doc)
+from db_manager import DatabaseManager # <--- Our new PostgreSQL manager!
 
 # ──────────────────────────────────────────────────────
 #  APP SETUP
@@ -35,30 +38,12 @@ CORS(app, supports_credentials=True, origins=["http://localhost:5000", "http://1
 ALLOWED_EXTENSIONS = {'.py', '.java', '.zip'}
 MAX_FILES_IN_ZIP   = 200
 
+# Initialize PostgreSQL connection (this auto-creates tables)
+db = DatabaseManager()
+
 # ──────────────────────────────────────────────────────
-#  FILE-BASED DB
+#  HELPERS
 # ──────────────────────────────────────────────────────
-DATA_DIR      = Path(__file__).parent / 'data'
-DATA_DIR.mkdir(exist_ok=True)
-USERS_FILE    = DATA_DIR / 'users.json'
-SESSIONS_FILE = DATA_DIR / 'sessions.json'
-
-def _load(path):
-    if path.exists():
-        try: return json.loads(path.read_text('utf-8'))
-        except: pass
-    return {}
-
-def _save(path, data):
-    tmp = path.with_suffix('.tmp')
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), 'utf-8')
-    tmp.replace(path)
-
-get_users    = lambda: _load(USERS_FILE)
-save_users   = lambda u: _save(USERS_FILE, u)
-get_sess_db  = lambda: _load(SESSIONS_FILE)
-save_sess_db = lambda s: _save(SESSIONS_FILE, s)
-
 def hash_pw(pw: str) -> str:
     return hashlib.pbkdf2_hmac('sha256', pw.encode(), b'cg-salt', 200_000).hex()
 
@@ -82,17 +67,19 @@ def signup():
     name  = sanitize(d.get('name',''), 80)
     email = sanitize(d.get('email',''), 120).lower()
     pw    = d.get('password','')
+    
     if not name or not email or not pw: return jsonify({'error': 'All fields required'}), 400
     if len(pw) < 6: return jsonify({'error': 'Password must be at least 6 characters'}), 400
     if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email): return jsonify({'error': 'Invalid email address'}), 400
-    users = get_users()
-    if email in users: return jsonify({'error': 'Email already registered'}), 409
+    
     uid = str(uuid.uuid4())
-    users[email] = {
-        'uid': uid, 'name': name, 'email': email,
-        'pw': hash_pw(pw), 'created': datetime.now(timezone.utc).isoformat()
-    }
-    save_users(users)
+    created = datetime.now(timezone.utc).isoformat()
+    
+    # Attempt to create user in PostgreSQL
+    success = db.create_user(uid, name, email, hash_pw(pw), created)
+    if not success: 
+        return jsonify({'error': 'Email already registered'}), 409
+        
     session.permanent = True
     session.update({'uid': uid, 'email': email, 'name': name})
     return jsonify({'ok': True, 'user': {'uid': uid, 'name': name, 'email': email}})
@@ -102,9 +89,11 @@ def login():
     d     = request.get_json(silent=True) or {}
     email = sanitize(d.get('email',''), 120).lower()
     pw    = d.get('password','')
-    users = get_users()
-    user  = users.get(email)
-    if not user or user['pw'] != hash_pw(pw): return jsonify({'error': 'Invalid email or password'}), 401
+    
+    user = db.get_user_by_email(email)
+    if not user or user['pw'] != hash_pw(pw): 
+        return jsonify({'error': 'Invalid email or password'}), 401
+        
     session.permanent = True
     session.update({'uid': user['uid'], 'email': email, 'name': user['name']})
     return jsonify({'ok': True, 'user': {'uid': user['uid'], 'name': user['name'], 'email': email}})
@@ -124,61 +113,66 @@ def forgot_password():
     d     = request.get_json(silent=True) or {}
     email = sanitize(d.get('email',''), 120).lower()
     pw    = d.get('new_password','')
+    
     if not email or not pw: return jsonify({'error': 'Email and new password required'}), 400
     if len(pw) < 6: return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    users = get_users()
-    if email not in users: return jsonify({'ok': True, 'message': 'If that email is registered, the password has been updated.'})
-    users[email]['pw'] = hash_pw(pw)
-    save_users(users)
+    
+    user = db.get_user_by_email(email)
+    if not user: 
+        return jsonify({'ok': True, 'message': 'If that email is registered, the password has been updated.'})
+        
+    db.update_user_password(email, hash_pw(pw))
     return jsonify({'ok': True, 'message': 'Password updated. You can now sign in.'})
 
 # ──────────────────────────────────────────────────────
-#  SESSION PERSISTENCE
+#  SESSION PERSISTENCE ROUTES
 # ──────────────────────────────────────────────────────
 @app.route('/api/sessions')
 def list_sessions():
     if err := auth_error(): return err
     uid  = uid_from_session()
-    db   = get_sess_db()
-    rows = [s for s in db.values() if s.get('uid') == uid]
-    rows.sort(key=lambda x: x.get('updated',''), reverse=True)
+    rows = db.get_user_sessions(uid)
+    
+    # Exclude graphData from the list to save bandwidth
     return jsonify({'sessions': [{k: v for k, v in s.items() if k != 'graphData'} for s in rows]})
 
 @app.route('/api/sessions/<sid>', methods=['GET'])
 def get_session(sid):
     if err := auth_error(): return err
-    db = get_sess_db()
-    s  = db.get(sid)
-    if not s or s.get('uid') != uid_from_session(): return jsonify({'error': 'Not found'}), 404
+    s = db.get_session(sid)
+    if not s or s.get('uid') != uid_from_session(): 
+        return jsonify({'error': 'Not found'}), 404
     return jsonify({'session': s})
 
 @app.route('/api/sessions/<sid>', methods=['PUT'])
 def upsert_session(sid):
     if err := auth_error(): return err
     uid  = uid_from_session()
-    db   = get_sess_db()
     data = request.get_json(silent=True) or {}
-    s    = db.get(sid, {'sid': sid, 'uid': uid, 'created': datetime.now(timezone.utc).isoformat()})
-    if s.get('uid') != uid: return jsonify({'error': 'Forbidden'}), 403
+    
+    # Retrieve existing or create new session dict
+    s = db.get_session(sid) or {'sid': sid, 'uid': uid, 'created': datetime.now(timezone.utc).isoformat()}
+    
+    if s.get('uid') != uid: 
+        return jsonify({'error': 'Forbidden'}), 403
+        
+    # Update dict keys
     for k, v in data.items():
         if k not in {'uid', 'sid', 'created'}: s[k] = v
     s['updated'] = datetime.now(timezone.utc).isoformat()
-    db[sid] = s
-    save_sess_db(db)
+    
+    # Save back to PostgreSQL
+    db.upsert_session(sid, uid, s)
     return jsonify({'ok': True})
 
 @app.route('/api/sessions/<sid>', methods=['DELETE'])
 def delete_session(sid):
     if err := auth_error(): return err
-    uid = uid_from_session()
-    db  = get_sess_db()
-    if (s := db.get(sid)) and s.get('uid') == uid:
-        del db[sid]
-        save_sess_db(db)
+    db.delete_session(sid, uid_from_session())
     return jsonify({'ok': True})
 
 # ──────────────────────────────────────────────────────
-#  ANALYZE ROUTE
+#  ANALYZE ROUTE (Unchanged logic, just cleaner)
 # ──────────────────────────────────────────────────────
 @app.route('/api/analyze', methods=['POST'])
 def analyze():

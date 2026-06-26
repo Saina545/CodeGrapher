@@ -137,6 +137,7 @@ async function saveSess(){
     name:SD?.files?.[0]||'Analysis',
     language:SD?.language||'python',
     summary:SD,graphData:GD,riskData:RD,markdownDoc:MD,
+    filesData:FD, // <-- ADD THIS LINE
     chatMessages:CM,
     label:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
   };
@@ -158,9 +159,10 @@ async function openSess(sid){
     if(!r.ok){showErr('Could not load session.');return;}
     const d=await r.json();
     if(d.error){showErr(d.error);return;}
-    const s=d.session;
+   const s=d.session;
     curSid=sid;GD=s.graphData;SD=s.summary;
     RD=s.riskData;MD=s.markdownDoc;
+    FD=s.filesData||null; // <-- ADD THIS LINE
     CM=s.chatMessages||[];nodePos={};
     setupStats();setupBadge();
     document.getElementById('file-label').textContent=s.name||'Loaded';
@@ -240,6 +242,16 @@ async function upload(file){
     document.getElementById('legend').style.display='block';
     document.getElementById('zoom-ind').classList.add('visible');
     document.getElementById('minimap').classList.add('visible');
+    
+    // --- ADD THESE LINES TO RESTORE THE UI ---
+    document.getElementById('tb-stats').style.display='flex';
+    document.getElementById('zm-ctrls').style.display='flex';
+    document.getElementById('panel-tabs').style.display='flex';
+    document.getElementById('btn-fullscreen').style.display='flex';
+    document.getElementById('chat-drawer').style.display='';
+    document.getElementById('lang-badge').style.display='inline-block';
+    // -----------------------------------------
+
     renderGraph();updateRiskBadge(RD);renderRisk(RD);renderDocs(MD);
     lov.classList.add('hidden');
     switchTab('graph');
