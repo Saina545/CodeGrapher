@@ -2,17 +2,7 @@
 
 > **An AI-Powered Platform to Visualize, Analyze, and Understand Codebases using Static Analysis and Hybrid GraphRAG**
 
-<p align="center">
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
-![Flask](https://img.shields.io/badge/Flask-Web%20Framework-black?logo=flask)
-![Java](https://img.shields.io/badge/Java-Supported-orange?logo=openjdk)
-![GraphRAG](https://img.shields.io/badge/Hybrid-GraphRAG-success)
-![ChromaDB](https://img.shields.io/badge/VectorDB-ChromaDB-purple)
-![Ollama](https://img.shields.io/badge/LLM-Ollama-blueviolet)
-![License](https://img.shields.io/badge/License-MIT-green)
-
-</p>
 
 ---
 
@@ -319,61 +309,7 @@ http://localhost:5000
 
 ---
 
-# Application Workflow
 
-The complete execution pipeline of CodeGrapher is illustrated below.
-
-```
-                     Upload Repository
-                             │
-                             ▼
-                  Detect Programming Language
-                             │
-                             ▼
-             Static Repository Analysis (AST/Java)
-                             │
-         ┌───────────────────┴──────────────────┐
-         ▼                                      ▼
- Function Extraction                  Class Extraction
-         │                                      │
-         └───────────────┬──────────────────────┘
-                         ▼
-                  Call Graph Generation
-                         │
-                         ▼
-             Repository Metrics & Risk Report
-                         │
-                         ▼
-              Function-Level Code Chunking
-                         │
-                         ▼
-          Embedding Generation (nomic-embed-text)
-                         │
-                         ▼
-              Store Embeddings in ChromaDB
-═══════════════════════════════════════════════════════
-                   User asks Question
-                         │
-                         ▼
-             Generate Query Embedding
-                         │
-                         ▼
-      Retrieve Top-K Semantic Code Chunks
-                         │
-                         ▼
-        Graph Expansion (Callers & Callees)
-                         │
-                         ▼
-        Build Repository Context for LLM
-                         │
-                         ▼
-                   Ollama (Llama 3.2)
-                         │
-                         ▼
-          Repository-Aware AI Explanation
-```
-
----
 
 # User Interface
 
@@ -531,18 +467,12 @@ Future improvements include:
 - Multi-language repository analysis
 - C/C++ support
 - JavaScript and TypeScript support
-- Incremental repository indexing
-- Multi-hop GraphRAG
-- Cross-repository search
-- Repository summarization
 - GitHub integration
 - Docker deployment
 - Role-based authentication
 - Multi-user collaboration
 - AI-powered code refactoring suggestions
-- Automatic sequence diagram generation
-- Incremental embedding updates
-- Hybrid reranking for semantic retrieval
+
 
 ---
 
